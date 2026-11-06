@@ -75,3 +75,33 @@ Never tested:
   own hands-on work with native tools. Do not add scripts that do the owner's steps.
 - Docs prose: short declarative sentences, no em dashes, no semicolons joining clauses.
 - When something fails, report the step, the command, and the error. Fix the root cause.
+
+## Status after the first local session (2026-11-06)
+
+Done and verified on WSL2 (kind 0.29, Docker 29.8):
+- `make up` completes and every pod is healthy. DataHub, Trino, and Open WebUI answer on
+  9002, 8080, and 3000. The toolbox writes `/work` files as the host UID and GID.
+- Stage 1 numbers, the Stage 2 GraphQL snippet, and Stage 4 (`enriched 5/5 tables ...`)
+  match the guide.
+- Stages 3, 6, 7, and 8 with the reference model: install, `VALIDATED=True PUBLISHED=True
+  DRIFT=False`, the Stage 7 rows, the PII 403, the Texas row filter, and the gateway
+  refusing a spoofed `admin` role. Step 3 of the goal (uninstall) is done.
+
+Fixes made:
+- Makefile pointed at the removed charts 0.3.0 and 1.0.3. It now uses 0.3.1 and 1.1.9.
+- NetworkPolicy is inert on this WSL2 kernel. kindnet logs `netlink receive: no such file
+  or directory` on every nftables sync. Documented in the guide (Stage 3 and Troubleshooting).
+
+Still open:
+- Open WebUI v0.13.0 menu names. Admin Panel and Settings exist. There is no
+  **External Tools** tab. The settings tabs are General, Authentication, Interface,
+  Connections, Models, Sub-agents, Integrations, Documents, Audio, Images, Web Search,
+  Code Execution, Pipelines, Analytics, Evaluations, and Database. The tool server form
+  is most likely under **Integrations** (i18n key
+  `settings.admin.integrations.externalToolServers.label`), and the bundle still holds the
+  strings `MCP`, `Streamable HTTP`, `Advanced Params`, and `Function Calling`. The string
+  `Chat Controls` is gone (`Controls` and `Toggle Controls` exist). Confirm each click path
+  in the real UI, then fix Stage 10 of the guide and Steps 31 and 32 of lab-steps.
+- Note: REST URLs take `spec.ossie.name`, so the reference model is
+  `/v1/models/tpcds_retail_model`. The learner's model is `retail` in both places, so the
+  guide is right as written.

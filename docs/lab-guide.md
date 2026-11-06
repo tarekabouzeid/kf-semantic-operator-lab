@@ -256,6 +256,9 @@ Three choices matter.
   `X-Semantic-Role` headers. That is only safe behind a proxy that sets them. The chat
   gateway is that proxy here. Production uses `mode: jwt`.
 - `networkPolicy.allowFrom` lets the `chat` and `lab` namespaces reach the server.
+  kind enforces NetworkPolicy through kindnet, which needs nftables support in the host
+  kernel. Some kernels lack it, for example WSL2. There the policies are inert and any
+  namespace can reach the server. The gateway in Stage 8 still decides the role.
 
 Install it.
 
@@ -905,6 +908,12 @@ with `kubectl -n semantic-system logs deploy/semantic-operator-manager`.
 
 **The chat answers without calling tools.** Function Calling is not set to Native, the tool
 is not enabled in the chat, or the model does not support tool calling on OpenRouter.
+
+**Another namespace can reach the semantic server.** kindnet could not program its nftables
+rules, so NetworkPolicy is not enforced. Check with
+`kubectl -n kube-system logs -l app=kindnet | grep -A2 'syncing nftables rules'`. An error
+there means the host kernel lacks nftables support. The lab still works. Only the network
+lockdown is missing.
 
 **Open WebUI cannot reach the MCP server.** Check that the gateway answers from inside the
 cluster.

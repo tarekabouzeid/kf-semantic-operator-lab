@@ -80,11 +80,11 @@ datahub: ## DataHub, OpenSearch and Kafka in namespace datahub (5 to 10 minutes)
 	$(KUBECTL) -n datahub create secret generic datahub-postgres \
 	  --from-literal=postgres-password="$$($(KUBECTL) -n lakehouse get secret postgres -o jsonpath='{.data.DATAHUB_PASSWORD}' | base64 -d)" \
 	  --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(HELM) upgrade --install prerequisites $(DH_CHARTS)/datahub-prerequisites-0.3.0.tgz \
+	$(HELM) upgrade --install prerequisites $(DH_CHARTS)/datahub-prerequisites-0.3.1.tgz \
 	  -n datahub -f datahub/prereqs-values.yaml --wait --timeout 15m
 	$(KUBECTL) apply -f datahub/kafka.yaml
 	$(KUBECTL) -n datahub rollout status statefulset/prerequisites-kafka --timeout=5m
-	$(HELM) upgrade --install datahub $(DH_CHARTS)/datahub-1.0.3.tgz \
+	$(HELM) upgrade --install datahub $(DH_CHARTS)/datahub-1.1.9.tgz \
 	  -n datahub -f datahub/values.yaml --wait --timeout 20m
 	$(KUBECTL) apply -f datahub/nodeport.yaml
 
