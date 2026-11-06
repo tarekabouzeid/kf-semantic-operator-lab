@@ -1,0 +1,5 @@
+work/*
+!work/.gitkeep
+.tmp/
+# The operator source you clone in Stage 3.
+semantic-operator/

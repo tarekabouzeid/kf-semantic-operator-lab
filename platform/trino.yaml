@@ -1,0 +1,130 @@
+# Single-node Trino 483: coordinator and worker in one pod, plain HTTP, no
+# password. Any username is accepted and there is no access control. That
+# keeps the lab about the semantic layer, not about engine security.
+#
+# Two catalogs:
+#   iceberg  Apache Iceberg tables. Table metadata lives in Postgres (JDBC
+#            catalog), data files on this pod's volume. Survives restarts.
+#   tpcds    Trino's built-in TPC-DS generator, the source of the lab data.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trino
+  namespace: lakehouse
+data:
+  config.properties: |
+    coordinator=true
+    node-scheduler.include-coordinator=true
+    http-server.http.port=8080
+    discovery.uri=http://localhost:8080
+    catalog.management=static
+    web-ui.authentication.type=fixed
+    web-ui.user=lab
+  node.properties: |
+    node.environment=semantic_lab
+    node.data-dir=/data/trino
+  jvm.config: |
+    -server
+    -XX:InitialRAMPercentage=40
+    -XX:MaxRAMPercentage=75
+    -XX:+ExitOnOutOfMemoryError
+    -Djdk.attach.allowAttachSelf=true
+  iceberg.properties: |
+    connector.name=iceberg
+    iceberg.catalog.type=jdbc
+    iceberg.jdbc-catalog.catalog-name=lab
+    iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
+    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://postgres.lakehouse.svc.cluster.local:5432/iceberg
+    iceberg.jdbc-catalog.connection-user=iceberg
+    iceberg.jdbc-catalog.connection-password=${ENV:ICEBERG_PASSWORD}
+    iceberg.jdbc-catalog.default-warehouse-dir=local:///warehouse
+    fs.native-local.enabled=true
+    local.location=/data
+  tpcds.properties: |
+    connector.name=tpcds
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: trino-data
+  namespace: lakehouse
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: {storage: 5Gi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trino
+  namespace: lakehouse
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: trino}
+  template:
+    metadata:
+      labels: {app: trino}
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: trino
+          image: trinodb/trino:483
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8080}
+          env:
+            - name: ICEBERG_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: postgres, key: ICEBERG_PASSWORD}
+          readinessProbe:
+            httpGet: {path: /v1/info/state, port: http}
+            periodSeconds: 5
+          startupProbe:
+            httpGet: {path: /v1/info/state, port: http}
+            periodSeconds: 3
+            failureThreshold: 100
+          resources:
+            requests: {cpu: 500m, memory: 2Gi}
+            limits: {memory: 3Gi}
+          volumeMounts:
+            - {name: config, mountPath: /etc/trino/config.properties, subPath: config.properties}
+            - {name: config, mountPath: /etc/trino/node.properties, subPath: node.properties}
+            - {name: config, mountPath: /etc/trino/jvm.config, subPath: jvm.config}
+            - {name: config, mountPath: /etc/trino/catalog/iceberg.properties, subPath: iceberg.properties}
+            - {name: config, mountPath: /etc/trino/catalog/tpcds.properties, subPath: tpcds.properties}
+            - {name: data, mountPath: /data}
+            - {name: lab-sql, mountPath: /etc/lab}
+      volumes:
+        - name: config
+          configMap: {name: trino}
+        - name: data
+          persistentVolumeClaim: {claimName: trino-data}
+        - name: lab-sql
+          configMap: {name: lab-data-sql, optional: true}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trino
+  namespace: lakehouse
+spec:
+  selector: {app: trino}
+  ports:
+    - {name: http, port: 8080, targetPort: 8080}
+---
+# Trino web UI on http://localhost:8080 (user "lab", no password).
+apiVersion: v1
+kind: Service
+metadata:
+  name: trino-ui
+  namespace: lakehouse
+spec:
+  type: NodePort
+  selector: {app: trino}
+  ports:
+    - {name: http, port: 8080, targetPort: 8080, nodePort: 30808}

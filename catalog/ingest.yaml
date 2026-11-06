@@ -1,0 +1,53 @@
+# DataHub ingestion of the lab tables, read through Trino.
+#
+# This is a standard DataHub ingestion recipe run by the `datahub` CLI. The
+# trino source reads information_schema and names each dataset
+# <catalog>.<schema>.<table>, so the lab tables become
+#   urn:li:dataset:(urn:li:dataPlatform:trino,iceberg.osi_demo.store_sales,PROD)
+# That naming is why ossiectl later needs -datahub-platform trino
+# -datahub-dataset-prefix iceberg.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datahub-ingest-trino
+  namespace: datahub
+data:
+  recipe.yml: |
+    source:
+      type: trino
+      config:
+        host_port: trino.lakehouse.svc.cluster.local:8080
+        database: iceberg
+        username: datahub
+        schema_pattern:
+          allow: ['^osi_demo$']
+        profiling:
+          enabled: false
+    sink:
+      type: datahub-rest
+      config:
+        server: http://datahub-datahub-gms.datahub.svc.cluster.local:8080
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: datahub-ingest-trino
+  namespace: datahub
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ingest
+          image: semantic-lab/toolbox:dev
+          imagePullPolicy: Never
+          env:
+            - {name: HOME, value: /tmp}
+            - {name: DATAHUB_TELEMETRY_ENABLED, value: "false"}
+          command: ["datahub", "ingest", "-c", "/recipe/recipe.yml"]
+          volumeMounts:
+            - {name: recipe, mountPath: /recipe}
+      volumes:
+        - name: recipe
+          configMap: {name: datahub-ingest-trino}

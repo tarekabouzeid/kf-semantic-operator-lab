@@ -1,0 +1,108 @@
+# Postgres 16, shared by two tenants:
+#   iceberg  the Iceberg JDBC catalog Trino uses (table name -> metadata file)
+#   datahub  DataHub's relational store
+# Passwords are local lab placeholders, not secrets.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres
+  namespace: lakehouse
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: lab-superuser
+  ICEBERG_PASSWORD: lab-iceberg
+  DATAHUB_PASSWORD: lab-datahub
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: lakehouse
+data:
+  10-databases.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<SQL
+    CREATE ROLE iceberg LOGIN PASSWORD '${ICEBERG_PASSWORD}';
+    CREATE DATABASE iceberg OWNER iceberg;
+    CREATE ROLE datahub LOGIN PASSWORD '${DATAHUB_PASSWORD}';
+    CREATE DATABASE datahub OWNER datahub;
+    SQL
+    # Trino's Iceberg JDBC catalog expects its two tables to exist. The
+    # iceberg_type column (catalog schema V1) is what allows Iceberg views,
+    # which the operator creates for spec.views.
+    psql -v ON_ERROR_STOP=1 --username iceberg --dbname iceberg <<SQL
+    CREATE TABLE iceberg_namespace_properties (
+      catalog_name   VARCHAR(255) NOT NULL,
+      namespace      VARCHAR(255) NOT NULL,
+      property_key   VARCHAR(255),
+      property_value VARCHAR(1000),
+      PRIMARY KEY (catalog_name, namespace, property_key));
+    CREATE TABLE iceberg_tables (
+      catalog_name               VARCHAR(255) NOT NULL,
+      table_namespace            VARCHAR(255) NOT NULL,
+      table_name                 VARCHAR(255) NOT NULL,
+      metadata_location          VARCHAR(1000),
+      previous_metadata_location VARCHAR(1000),
+      iceberg_type               VARCHAR(5),
+      PRIMARY KEY (catalog_name, table_namespace, table_name));
+    SQL
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: lakehouse
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: {storage: 2Gi}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: lakehouse
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels: {app: postgres}
+  template:
+    metadata:
+      labels: {app: postgres}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: pg, containerPort: 5432}
+          env:
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+          envFrom:
+            - secretRef: {name: postgres}
+          readinessProbe:
+            exec: {command: ["pg_isready", "-U", "postgres"]}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 768Mi}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: init, mountPath: /docker-entrypoint-initdb.d}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: postgres-data}
+        - name: init
+          configMap: {name: postgres-init}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: lakehouse
+spec:
+  selector: {app: postgres}
+  ports:
+    - {name: pg, port: 5432, targetPort: 5432}

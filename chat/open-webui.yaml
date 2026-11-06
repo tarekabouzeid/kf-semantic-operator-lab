@@ -1,0 +1,91 @@
+# Open WebUI, the chat interface, on http://localhost:3000.
+#
+# The LLM comes from OpenRouter through its OpenAI-compatible API. Two objects
+# carry the settings, so you can change them without touching this file:
+#   Secret    openrouter   OPENAI_API_KEY        your OpenRouter key
+#   ConfigMap open-webui   OPENAI_API_BASE_URL   https://openrouter.ai/api/v1
+#                          DEFAULT_MODELS        the model selected in new chats
+# Create the Secret with:
+#   kubectl -n chat create secret generic openrouter --from-literal=OPENAI_API_KEY=sk-or-...
+# After changing either, restart: kubectl -n chat rollout restart deploy/open-webui
+#
+# ENABLE_PERSISTENT_CONFIG=False makes the environment the source of truth on
+# every start. Settings you change in the admin UI (including MCP tool servers)
+# last until the pod restarts.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: open-webui
+  namespace: chat
+data:
+  OPENAI_API_BASE_URL: https://openrouter.ai/api/v1
+  # An OpenRouter model id that supports tool calling, e.g. anthropic/claude-sonnet-4.5.
+  # Leave empty to pick one in the UI.
+  DEFAULT_MODELS: ""
+  ENABLE_OLLAMA_API: "False"
+  ENABLE_PERSISTENT_CONFIG: "False"
+  # Single user laptop lab: no login screen.
+  WEBUI_AUTH: "False"
+  # The lab does not use document retrieval, so skip embedding models.
+  BYPASS_EMBEDDING_AND_RETRIEVAL: "True"
+  ENABLE_EVALUATION_ARENA_MODELS: "False"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: open-webui
+  namespace: chat
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: {storage: 2Gi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-webui
+  namespace: chat
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: open-webui}
+  template:
+    metadata:
+      labels: {app: open-webui}
+    spec:
+      containers:
+        - name: open-webui
+          image: ghcr.io/open-webui/open-webui:v0.6.36-slim
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8080}
+          envFrom:
+            - configMapRef: {name: open-webui}
+            - secretRef: {name: openrouter, optional: true}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+            failureThreshold: 60
+          resources:
+            requests: {cpu: 100m, memory: 512Mi}
+            limits: {memory: 2Gi}
+          volumeMounts:
+            - {name: data, mountPath: /app/backend/data}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: open-webui}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-webui
+  namespace: chat
+spec:
+  type: NodePort
+  selector: {app: open-webui}
+  ports:
+    - {name: http, port: 8080, targetPort: 8080, nodePort: 30300}

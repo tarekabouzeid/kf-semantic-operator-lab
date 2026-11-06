@@ -1,0 +1,50 @@
+# Helm values for installing Semantic Operator into the lab. You install it
+# yourself (see the lab guide). Every line here is a choice worth reading.
+
+# Images you built and loaded into kind with `kind load docker-image`.
+# imagePullPolicy Never makes a missing load fail loudly instead of pulling.
+image:
+  manager:
+    repository: semantic-lab/manager
+  server:
+    repository: semantic-lab/server
+  tag: dev
+  pullPolicy: Never
+
+# The engine the planner compiles for and connects to. Lab Trino is plain HTTP
+# with no password, so the two identities below are just usernames. In
+# production they are two engine accounts with different grants:
+#   manager  reads metadata (drift check) and creates the governed views
+#   server   only runs SELECT
+engine:
+  type: trino
+  host: trino.lakehouse.svc.cluster.local
+  port: 8080
+  manager:
+    user: semantic-manager
+  server:
+    user: semantic-server
+
+manager:
+  # How often the operator re-checks published models against the engine.
+  # Short here so the drift exercise shows up quickly.
+  resyncPeriod: 1m
+
+server:
+  replicas: 1
+  auth:
+    # Header mode trusts X-Semantic-User and X-Semantic-Role. Only safe behind
+    # a proxy that sets them, which in this lab is the gateway in namespace
+    # chat. Production uses mode: jwt.
+    mode: header
+    allowInsecureHeaderAuth: true
+
+# The chart locks the server down to its own namespace by default. Let the
+# chat gateway and the toolbox pod in.
+networkPolicy:
+  enabled: true
+  allowFrom:
+    - namespaceSelector:
+        matchLabels: {kubernetes.io/metadata.name: chat}
+    - namespaceSelector:
+        matchLabels: {kubernetes.io/metadata.name: lab}

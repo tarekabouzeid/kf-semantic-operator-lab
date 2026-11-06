@@ -1,0 +1,21 @@
+# kind cluster for the DataHub + Trino lab. One node. The host ports below are
+# bound to 127.0.0.1 only, so nothing in the lab is reachable from your network.
+#
+# The Makefile renders this template, replacing @LAB_WORK@ with the absolute
+# path of ./work. That directory is shared with the toolbox pod as /work, so a
+# model you derive inside the pod is a file you can open in your own editor.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: semantic-lab
+nodes:
+  - role: control-plane
+    extraMounts:
+      - hostPath: @LAB_WORK@
+        containerPath: /lab-work
+    extraPortMappings:
+      # DataHub UI
+      - {containerPort: 30902, hostPort: 9002, listenAddress: 127.0.0.1}
+      # Open WebUI
+      - {containerPort: 30300, hostPort: 3000, listenAddress: 127.0.0.1}
+      # Trino web UI and HTTP API
+      - {containerPort: 30808, hostPort: 8080, listenAddress: 127.0.0.1}

@@ -1,0 +1,85 @@
+# What a data steward has recorded in DataHub about the lab tables.
+#
+# In a real company people build this up in the DataHub UI over months. The lab
+# seeds it from this file (see annotate.py) so every run starts from the same
+# catalog. Everything here is visible and editable in the UI afterwards, and
+# that is the point: ossiectl reads whatever DataHub holds when you run it.
+#
+# How each kind of metadata reaches the semantic model through
+# `ossiectl derive -enrich datahub`:
+#   description            -> description of the dataset or field
+#   glossary term (name)   -> ai_context.synonyms, the words an agent matches
+#   tag PII / Sensitive /
+#     Confidential / Restricted -> governance.denyFields (403 before any SQL)
+#   deprecation            -> dataset flagged as deprecated
+
+platform: trino
+dataset_prefix: iceberg.osi_demo   # DataHub's trino source names datasets <catalog>.<schema>.<table>
+env: PROD
+
+glossary:
+  node: {id: retail, name: Retail, description: "Business vocabulary of the retail division."}
+  terms:
+    - {id: revenue, name: Revenue, description: "Money from sales after discounts, before tax. Finance reports this number."}
+    - {id: net-profit, name: Net Profit, description: "Revenue minus cost of goods and discounts."}
+    - {id: units-sold, name: Units Sold, description: "Number of items sold."}
+    - {id: sales-ticket, name: Sales Ticket, description: "One checkout at a register. A ticket has one or more lines."}
+    - {id: headcount, name: Headcount, description: "Number of employees working at a store."}
+    - {id: shopper, name: Shopper, description: "A person who bought from us in a store."}
+    - {id: product-category, name: Product Category, description: "Top level grouping of merchandise, such as Books or Electronics."}
+    - {id: brand, name: Brand, description: "Manufacturer brand of a product."}
+    - {id: sales-region, name: Sales Region, description: "US state a store reports into."}
+    - {id: storefront, name: Storefront, description: "A physical retail store."}
+
+tags:
+  - {id: PII, name: PII, description: "Personally identifiable information. Must not be shown to analysts."}
+
+datasets:
+  store_sales:
+    description: "Point of sale line items. One row per item on a sales ticket. This is the fact table."
+    terms: []
+    fields:
+      ss_ext_sales_price: {description: "Line revenue: sales price times quantity, after discounts. This is what Finance calls revenue.", terms: [Revenue]}
+      ss_ext_list_price: {description: "Line value at list price, before discounts. Not revenue."}
+      ss_net_paid: {description: "What the shopper paid for the line, excluding tax."}
+      ss_net_profit: {description: "Line profit after cost and discounts.", terms: [Net Profit]}
+      ss_quantity: {description: "Units sold on the line.", terms: [Units Sold]}
+      ss_ticket_number: {description: "Sales ticket (receipt) number. A ticket has many lines, so count distinct tickets to count transactions.", terms: [Sales Ticket]}
+      ss_customer_sk: {description: "The shopper on the ticket. Joins to customer.c_customer_sk."}
+      ss_store_sk: {description: "The store that made the sale. Joins to store.s_store_sk."}
+      ss_item_sk: {description: "The product sold. Joins to item.i_item_sk."}
+      ss_sold_date_sk: {description: "Day of the sale. Joins to date_dim.d_date_sk."}
+  store:
+    description: "Physical stores, with headcount and location."
+    terms: [Storefront]
+    fields:
+      s_store_name: {description: "Store name."}
+      s_number_employees: {description: "Store headcount, one value per store. Never sum it across a join to sales: it repeats on every sales row.", terms: [Headcount]}
+      s_state: {description: "US state of the store.", terms: [Sales Region]}
+      s_city: {description: "City of the store."}
+  customer:
+    description: "Shoppers who have bought in a store."
+    terms: [Shopper]
+    fields:
+      c_email_address: {description: "Shopper contact email.", tags: [PII]}
+      c_first_name: {description: "Shopper first name.", tags: [PII]}
+      c_last_name: {description: "Shopper last name.", tags: [PII]}
+      c_birth_country: {description: "Country the shopper was born in."}
+      c_preferred_cust_flag: {description: "Y when the shopper is in the loyalty program."}
+  item:
+    description: "Product catalog."
+    terms: []
+    fields:
+      i_category: {description: "Product category, such as Books or Electronics.", terms: [Product Category]}
+      i_brand: {description: "Manufacturer brand.", terms: [Brand]}
+      i_class: {description: "Product class within a category."}
+      i_current_price: {description: "Current shelf price of the product."}
+  date_dim:
+    description: "Calendar. One row per day from 2000 to 2002."
+    terms: []
+    fields:
+      d_date: {description: "Calendar date."}
+      d_year: {description: "Calendar year."}
+      d_moy: {description: "Month of year, 1 to 12."}
+      d_month_name: {description: "Month name, January to December."}
+      d_qoy: {description: "Quarter of year, 1 to 4."}

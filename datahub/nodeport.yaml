@@ -1,0 +1,12 @@
+# DataHub UI on http://localhost:9002 (login datahub / datahub).
+apiVersion: v1
+kind: Service
+metadata:
+  name: datahub-ui
+  namespace: datahub
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: datahub-frontend
+  ports:
+    - {name: http, port: 9002, targetPort: 9002, nodePort: 30902}

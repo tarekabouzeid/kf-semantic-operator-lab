@@ -1,0 +1,22 @@
+# One namespace per concern, so `kubectl get pods -n <ns>` shows one layer of
+# the lab at a time. semantic-system is created by you, when you install the
+# operator.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lakehouse   # Postgres (Iceberg catalog + DataHub store) and Trino
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: datahub     # DataHub and its OpenSearch and Kafka
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab         # the toolbox pod you work from
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chat        # Open WebUI and the identity gateway in front of the semantic server

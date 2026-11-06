@@ -1,0 +1,48 @@
+# The pod you work from:
+#   kubectl -n lab exec -it deploy/toolbox -- bash
+#
+# /work is ./work in the lab directory on your machine (through the kind node),
+# so files you write here open in your own editor. The Makefile renders @LAB_UID@
+# and @LAB_GID@ to your user, so those files are owned by you, not root.
+#
+# The environment below is exactly what ossiectl reads. Nothing is hidden in a
+# wrapper: `env | sort` inside the pod shows it all.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: toolbox
+  namespace: lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: toolbox}
+  template:
+    metadata:
+      labels: {app: toolbox}
+    spec:
+      securityContext:
+        runAsUser: @LAB_UID@
+        runAsGroup: @LAB_GID@
+      containers:
+        - name: toolbox
+          image: semantic-lab/toolbox:dev
+          imagePullPolicy: Never
+          env:
+            - {name: HOME, value: /tmp}
+            - {name: DATAHUB_TELEMETRY_ENABLED, value: "false"}
+            # Engine connection for `ossiectl derive -source engine`.
+            - {name: SQL_DIALECT, value: trino}
+            - {name: ENGINE_HOST, value: trino.lakehouse.svc.cluster.local}
+            - {name: ENGINE_PORT, value: "8080"}
+            - {name: ENGINE_USER, value: ossiectl}
+            # DataHub's metadata service, for `-enrich datahub`.
+            - {name: DATAHUB_URL, value: http://datahub-datahub-gms.datahub.svc.cluster.local:8080}
+            - {name: DATAHUB_GMS_URL, value: http://datahub-datahub-gms.datahub.svc.cluster.local:8080}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {memory: 1Gi}
+          volumeMounts:
+            - {name: work, mountPath: /work}
+      volumes:
+        - name: work
+          hostPath: {path: /lab-work, type: Directory}

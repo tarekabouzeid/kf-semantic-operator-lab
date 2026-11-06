@@ -1,0 +1,26 @@
+# Seeds the steward metadata (steward-metadata.yaml) into DataHub through its
+# GraphQL API. The Makefile creates the ConfigMap "steward-metadata" from that
+# file and annotate.py before applying this Job.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: datahub-annotate
+  namespace: datahub
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: annotate
+          image: semantic-lab/toolbox:dev
+          imagePullPolicy: Never
+          env:
+            - {name: HOME, value: /tmp}
+            - {name: DATAHUB_TELEMETRY_ENABLED, value: "false"}
+          command: ["python", "/seed/annotate.py", "/seed/steward-metadata.yaml"]
+          volumeMounts:
+            - {name: seed, mountPath: /seed}
+      volumes:
+        - name: seed
+          configMap: {name: steward-metadata}
