@@ -38,6 +38,11 @@ spec:
             # DataHub's metadata service, for `-enrich datahub`.
             - {name: DATAHUB_URL, value: http://datahub-datahub-gms.datahub.svc.cluster.local:8080}
             - {name: DATAHUB_GMS_URL, value: http://datahub-datahub-gms.datahub.svc.cluster.local:8080}
+          # DATAHUB_TOKEN: DataHub's system credential, "Basic __datahub_system:<secret>".
+          # ossiectl sends it verbatim as the Authorization header. `make toolbox`
+          # copies it from namespace datahub into the Secret datahub-token here.
+          envFrom:
+            - secretRef: {name: datahub-token, optional: true}
           resources:
             requests: {cpu: 50m, memory: 128Mi}
             limits: {memory: 1Gi}

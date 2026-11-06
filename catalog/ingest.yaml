@@ -27,6 +27,9 @@ data:
       type: datahub-rest
       config:
         server: http://datahub-datahub-gms.datahub.svc.cluster.local:8080
+        # DataHub's system credential, from the datahub-auth-secrets Secret.
+        extra_headers:
+          Authorization: "Basic __datahub_system:${DATAHUB_SYSTEM_CLIENT_SECRET}"
 ---
 apiVersion: batch/v1
 kind: Job
@@ -45,6 +48,9 @@ spec:
           env:
             - {name: HOME, value: /tmp}
             - {name: DATAHUB_TELEMETRY_ENABLED, value: "false"}
+            - name: DATAHUB_SYSTEM_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: {name: datahub-auth-secrets, key: system_client_secret}
           command: ["datahub", "ingest", "-c", "/recipe/recipe.yml"]
           volumeMounts:
             - {name: recipe, mountPath: /recipe}

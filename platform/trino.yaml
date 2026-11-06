@@ -1,4 +1,4 @@
-# Single-node Trino 483: coordinator and worker in one pod, plain HTTP, no
+# Single-node Trino 484: coordinator and worker in one pod, plain HTTP, no
 # password. Any username is accepted and there is no access control. That
 # keeps the lab about the semantic layer, not about engine security.
 #
@@ -73,7 +73,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: trino
-          image: trinodb/trino:483
+          image: trinodb/trino:484
           imagePullPolicy: IfNotPresent
           ports:
             - {name: http, containerPort: 8080}

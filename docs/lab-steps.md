@@ -65,7 +65,7 @@ This is your workstation for the rest of the lab. `/work` is the lab's `work/` f
 
 ```bash
 kubectl -n lab exec -it deploy/toolbox -- bash
-env | grep -E 'ENGINE|DATAHUB|SQL_DIALECT' | sort
+env | grep -E 'ENGINE|DATAHUB|SQL_DIALECT' | sed 's/\(TOKEN=Basic [^:]*:\).*/\1***/' | sort
 ```
 
 ## Part 3. Install Semantic Operator

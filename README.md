@@ -71,10 +71,13 @@ make status
 | Component | Version |
 |---|---|
 | Semantic Operator | commit `4fd7057` (no tagged release yet) |
-| Trino | 483 |
-| DataHub | v1.6.0 (chart 1.0.3, prerequisites 0.3.0) |
-| Open WebUI | v0.6.36 |
-| Postgres | 16 |
+| Trino | 484 |
+| DataHub | v1.8.0 (chart 1.1.9, prerequisites 0.3.1), CLI 1.7.0.19 |
+| OpenSearch | 2.19.7 |
+| Kafka | 4.4.0 |
+| Open WebUI | v0.13.0 |
+| Postgres | 18 |
+| nginx (gateway) | 1.31.8 |
 
 Licensed under Apache 2.0. The DataHub charts in `datahub/charts/` are the upstream charts,
 vendored unchanged.

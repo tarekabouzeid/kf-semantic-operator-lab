@@ -180,10 +180,11 @@ kubectl -n lab exec -it deploy/toolbox -- bash
 ```
 
 ```bash
-env | grep -E 'ENGINE|DATAHUB|SQL_DIALECT' | sort
+env | grep -E 'ENGINE|DATAHUB|SQL_DIALECT' | sed 's/\(TOKEN=Basic [^:]*:\).*/\1***/' | sort
 ```
 
-Those variables are all `ossiectl` needs. Now ask DataHub's GraphQL API for the customer
+Those variables are all `ossiectl` needs. `DATAHUB_TOKEN` is DataHub's system credential.
+DataHub rejects API calls without it, so every client sends it. Now ask DataHub's GraphQL API for the customer
 columns. The toolbox image holds `ossiectl`, the DataHub CLI, and Python, so use Python.
 
 ```bash
@@ -193,7 +194,8 @@ urn = "urn:li:dataset:(urn:li:dataPlatform:trino,iceberg.osi_demo.customer,PROD)
 q = {"query": '{ dataset(urn: "%s") { editableSchemaMetadata { editableSchemaFieldInfo '
               '{ fieldPath description globalTags { tags { tag { properties { name } } } } } } } }' % urn}
 req = urllib.request.Request(os.environ["DATAHUB_GMS_URL"] + "/api/graphql",
-                             json.dumps(q).encode(), {"Content-Type": "application/json"})
+                             json.dumps(q).encode(), {"Content-Type": "application/json",
+                                                      "Authorization": os.environ["DATAHUB_TOKEN"]})
 for f in json.load(urllib.request.urlopen(req))["data"]["dataset"]["editableSchemaMetadata"]["editableSchemaFieldInfo"]:
     tags = [t["tag"]["properties"]["name"] for t in (f["globalTags"] or {"tags": []})["tags"]]
     print(f["fieldPath"], "|", f["description"], "|", tags)
@@ -316,7 +318,7 @@ enriched 5/5 tables from DataHub (3 sensitive columns, 0 deprecated)
 
 `-datahub-platform trino -datahub-dataset-prefix iceberg` builds the URN you saw in Stage 2.
 Get either wrong and the command fails with the URN it tried, rather than quietly writing an
-unenriched model. `DATAHUB_URL` is already set in the pod.
+unenriched model. `DATAHUB_URL` and `DATAHUB_TOKEN` are already set in the pod.
 
 **Compare the two passes.**
 

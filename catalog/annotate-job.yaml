@@ -18,6 +18,9 @@ spec:
           env:
             - {name: HOME, value: /tmp}
             - {name: DATAHUB_TELEMETRY_ENABLED, value: "false"}
+            - name: DATAHUB_SYSTEM_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: {name: datahub-auth-secrets, key: system_client_secret}
           command: ["python", "/seed/annotate.py", "/seed/steward-metadata.yaml"]
           volumeMounts:
             - {name: seed, mountPath: /seed}

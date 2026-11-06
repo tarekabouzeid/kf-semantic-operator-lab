@@ -94,7 +94,11 @@ toolbox: ## Build the toolbox image (ossiectl + DataHub CLI), load it, start the
 	kind load docker-image $(TOOLBOX) --name $(CLUSTER)
 	@mkdir -p $(LAB_DIR)/.tmp
 	sed -e "s#@LAB_UID@#$$(id -u)#" -e "s#@LAB_GID@#$$(id -g)#" toolbox/toolbox.yaml.tmpl > .tmp/toolbox.yaml
-	$(KUBECTL) apply -f platform/namespaces.yaml -f .tmp/toolbox.yaml
+	$(KUBECTL) apply -f platform/namespaces.yaml
+	$(KUBECTL) -n lab create secret generic datahub-token \
+	  --from-literal=DATAHUB_TOKEN="Basic __datahub_system:$$($(KUBECTL) -n datahub get secret datahub-auth-secrets -o jsonpath='{.data.system_client_secret}' | base64 -d)" \
+	  --dry-run=client -o yaml | $(KUBECTL) apply -f -
+	$(KUBECTL) apply -f .tmp/toolbox.yaml
 	$(KUBECTL) -n lab rollout restart deploy/toolbox
 	$(KUBECTL) -n lab rollout status deploy/toolbox --timeout=2m
 

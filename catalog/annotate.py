@@ -17,11 +17,14 @@ import urllib.request
 import yaml
 
 GMS = os.environ.get("DATAHUB_GMS_URL", "http://datahub-datahub-gms.datahub.svc.cluster.local:8080")
+HEADERS = {"Content-Type": "application/json"}
+if os.environ.get("DATAHUB_SYSTEM_CLIENT_SECRET"):
+    HEADERS["Authorization"] = "Basic __datahub_system:" + os.environ["DATAHUB_SYSTEM_CLIENT_SECRET"]
 
 
 def gql(query, variables):
     body = json.dumps({"query": query, "variables": variables}).encode()
-    req = urllib.request.Request(GMS + "/api/graphql", data=body, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(GMS + "/api/graphql", data=body, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=30) as resp:
         out = json.load(resp)
     errors = out.get("errors") or []

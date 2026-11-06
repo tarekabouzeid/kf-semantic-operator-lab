@@ -1,4 +1,4 @@
-# Postgres 16, shared by two tenants:
+# Postgres 18, shared by two tenants:
 #   iceberg  the Iceberg JDBC catalog Trino uses (table name -> metadata file)
 #   datahub  DataHub's relational store
 # Passwords are local lab placeholders, not secrets.
@@ -74,12 +74,12 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:18
           imagePullPolicy: IfNotPresent
           ports:
             - {name: pg, containerPort: 5432}
-          env:
-            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+          # Postgres 18 images keep data in a versioned directory under
+          # /var/lib/postgresql, so the volume mounts there, not at .../data.
           envFrom:
             - secretRef: {name: postgres}
           readinessProbe:
@@ -89,7 +89,7 @@ spec:
             requests: {cpu: 100m, memory: 256Mi}
             limits: {memory: 768Mi}
           volumeMounts:
-            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: data, mountPath: /var/lib/postgresql}
             - {name: init, mountPath: /docker-entrypoint-initdb.d}
       volumes:
         - name: data

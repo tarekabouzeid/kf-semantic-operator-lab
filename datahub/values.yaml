@@ -1,18 +1,19 @@
-# DataHub v1.6.0 for the lab: GMS (the metadata service and its GraphQL API)
+# DataHub v1.8.0 for the lab: GMS (the metadata service and its GraphQL API)
 # and the React frontend, single replicas, minimal resources.
 #
 # Relational store: the "datahub" database in the lab Postgres (namespace
 # lakehouse). Search and graph: the OpenSearch from the prerequisites release.
 # Kafka: the single-node broker in kafka.yaml.
 #
-# Metadata-service authentication is OFF so ossiectl and the ingestion job can
-# reach GMS without a token. That is fine on a laptop and wrong anywhere else.
-# The UI still asks for a login: datahub / datahub.
+# Metadata-service authentication stays ON, the chart default. The chart
+# generates the Secret datahub-auth-secrets, whose system_client_secret is the
+# credential every client in the lab uses: the ingestion and annotate jobs, and
+# ossiectl in the toolbox. They send it as
+#   Authorization: Basic __datahub_system:<system_client_secret>
+# The UI login is datahub / datahub.
 global:
   datahub:
-    version: v1.6.0
-    metadata_service_authentication:
-      enabled: false
+    version: v1.8.0
   graph_service_impl: elasticsearch
   sql:
     datasource:

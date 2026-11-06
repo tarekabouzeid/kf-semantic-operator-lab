@@ -15,6 +15,14 @@ elasticsearch:
 
 opensearch:
   enabled: true
+  # Latest 2.19 patch. DataHub's primary search cluster is OpenSearch 2.x. The
+  # chart's OpenSearch 3 entry is only a second cluster for migrations.
+  image:
+    tag: "2.19.7"
+  # Chart 0.3.1 does not render without this: the bundled OpenSearch subchart
+  # reads serviceMonitor.enabled and the parent chart never sets it.
+  serviceMonitor:
+    enabled: false
   singleNode: true
   opensearchJavaOpts: "-Xms512m -Xmx512m"
   resources:
