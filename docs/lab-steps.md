@@ -150,6 +150,14 @@ cp scaffold-datahub.yaml semanticmodel.yaml
 **Step 15. Certify it.** *(editor)*
 Make the seven edits in the full guide. Run `ossiectl validate -f semanticmodel.yaml` *(T)* after each one.
 
+To skip the typing, apply all seven at once. This writes `work/semanticmodel.auto.yaml` and
+never replaces an existing file. Use that name in the steps that follow.
+
+```bash
+kubectl -n lab exec -i deploy/toolbox -- python - \
+  /work/scaffold-datahub.yaml /work/semanticmodel.auto.yaml < model/certify.py
+```
+
 | Edit | What you add |
 |---|---|
 | 1 | Model description, `ai_context`, and `viewDatabase: iceberg.semantic_views` |

@@ -72,7 +72,8 @@ Never tested:
 ## Conventions
 
 - `make up` builds only the starting point. Everything involving the operator is the owner's
-  own hands-on work with native tools. Do not add scripts that do the owner's steps.
+  own hands-on work with native tools. Do not add scripts that do the owner's steps. The one
+  exception is `model/certify.py`, an optional Stage 5 shortcut the owner asked for.
 - Docs prose: short declarative sentences, no em dashes, no semicolons joining clauses.
 - When something fails, report the step, the command, and the error. Fix the root cause.
 

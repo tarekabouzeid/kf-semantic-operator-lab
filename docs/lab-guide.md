@@ -431,6 +431,21 @@ cp scaffold-datahub.yaml semanticmodel.yaml
 
 Make the seven edits below. After each one, check your work from the toolbox.
 
+> **Shortcut.** If you do not want to type the edits, a script can apply all seven to your
+> draft. Do the manual edits at least once to learn what each one decides. The script
+> writes a new file and refuses to replace one that exists. From the lab directory on your
+> machine, run this.
+>
+> ```bash
+> kubectl -n lab exec -i deploy/toolbox -- python - \
+>   /work/scaffold-datahub.yaml /work/semanticmodel.auto.yaml < model/certify.py
+> kubectl -n lab exec deploy/toolbox -- ossiectl validate -f /work/semanticmodel.auto.yaml
+> ```
+>
+> Use `work/semanticmodel.auto.yaml` wherever the guide says `work/semanticmodel.yaml`. The
+> script drops the comments from the draft, because it rewrites the file as plain YAML. Read
+> [`model/certify.py`](../model/certify.py) to see exactly what it sets.
+
 ```bash
 ossiectl validate -f semanticmodel.yaml
 ```

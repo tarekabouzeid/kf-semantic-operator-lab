@@ -62,7 +62,7 @@ make status
 | `toolbox/` | The image and pod you work from |
 | `operator/values.yaml` | The Helm values you install Semantic Operator with |
 | `chat/` | Open WebUI and the identity gateway in front of the semantic server |
-| `model/` | A finished model, to compare with yours |
+| `model/` | A finished model to compare with yours, and `certify.py`, an optional script that applies the Stage 5 edits to your draft |
 | `work/` | Your files. Shared with the toolbox pod as `/work` |
 | `docs/` | The guides |
 
