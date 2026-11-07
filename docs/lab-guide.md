@@ -71,6 +71,17 @@ supports tool calling. You can decide on both later.
 
 ## Stage 0. Build the starting point
 
+**Goal.** Get a realistic company setup on your laptop without doing any of the work this lab
+teaches. A real team already has a warehouse, a data catalog, and people who know what the
+columns mean. You need the same, so you can spend the lab on the semantic layer.
+
+**What happens.** `make up` runs the Makefile targets in order. It creates the kind cluster,
+starts Postgres and Trino, loads five retail tables into Iceberg, installs DataHub with its
+search and message queue, ingests the table definitions into DataHub, seeds the steward's
+descriptions and tags, builds the toolbox pod, and starts the chat UI. It stops before
+anything about Semantic Operator, because that is the part you do.
+
+
 Clone the lab and build it. Run every host command in this guide from the lab directory.
 
 ```bash
@@ -106,6 +117,16 @@ Open the three UIs to confirm they answer.
 Nothing in this stage is secret. Read the lab's `Makefile` to see every command `make up` ran.
 
 ## Stage 1. Look at the raw data
+
+**Goal.** Feel the problem before you fix it. A semantic layer exists because raw tables
+cannot tell you which column means revenue or how to join safely. You run one plausible query
+and see it return wrong numbers with no warning.
+
+**What happens.** You query Trino directly, the way an analyst or an LLM that writes SQL
+would. The query joins sales to stores and divides revenue by headcount. The join repeats
+each store's headcount on every sales line, so the denominator is inflated. You keep the two
+wrong numbers to compare with the certified ones in Stage 7.
+
 
 Start where an analyst or an LLM would start, with the tables. Open the Trino CLI inside the
 Trino pod.
@@ -153,6 +174,15 @@ Type `quit` to leave the CLI.
 
 ## Stage 2. Look at the business meaning in DataHub
 
+**Goal.** See what the catalog knows that the tables do not, and see how `ossiectl` will
+read it. This is the raw material for the model's descriptions, synonyms, and access rules.
+
+**What happens.** You browse the same tables in the DataHub UI and find the steward's column
+descriptions, glossary terms, and PII tags. Then you open the toolbox pod and call DataHub's
+GraphQL API yourself. That is the same call `ossiectl` makes in Stage 4, so nothing about the
+tool is hidden. You also learn the dataset URN format that Stage 4 depends on.
+
+
 The tables tell you names and types. DataHub tells you what they mean. Open
 <http://localhost:9002>, sign in, and search for `store_sales`. Open the dataset on the
 **Trino** platform. Its full name is `iceberg.osi_demo.store_sales`.
@@ -185,7 +215,7 @@ env | grep -E 'ENGINE|DATAHUB|SQL_DIALECT' | sed 's/\(TOKEN=Basic [^:]*:\).*/\1*
 
 Those variables are all `ossiectl` needs. `DATAHUB_TOKEN` is DataHub's system credential.
 DataHub rejects API calls without it, so every client sends it. Now ask DataHub's GraphQL API for the customer
-columns. The toolbox image holds `ossiectl`, the DataHub CLI, and Python, so use Python.
+columns. The toolbox image holds `ossiectl`, the DataHub CLI, Python, and the `nano` and `vi` editors, so use Python here.
 
 ```bash
 python - <<'EOF'
@@ -216,6 +246,17 @@ pass exactly that to `ossiectl`.
 Leave the toolbox shell open in its own terminal.
 
 ## Stage 3. Install Semantic Operator
+
+**Goal.** Install the operator the way a user would, from source, and understand its two
+parts. After this stage the cluster can accept a `SemanticModel`, but it holds none.
+
+**What happens.** You clone the repository at the pinned commit and build two images from one
+Dockerfile. The manager watches `SemanticModel` resources and does the publishing. The server
+answers queries and never changes anything. `kind load` copies the images into the cluster
+node. `helm install` creates the CRD, both deployments, their service accounts, and the
+network policy, using the values in `operator/values.yaml`. The checks confirm the CRD exists
+and both pods run.
+
 
 Work from the lab directory in a second terminal. Semantic Operator has no tagged release
 yet, so you install it from source, at the commit this lab was tested with. Clone it into the
@@ -292,6 +333,16 @@ kubectl explain semanticmodel.spec.governance.roles
 
 ## Stage 4. Derive a draft model
 
+**Goal.** Let the machine write everything a machine can know, so you only write what needs
+judgement. You also see the dividing line between the two.
+
+**What happens.** `ossiectl derive` reads table and column names and types from Trino's
+`information_schema`. Pass 1 uses Trino alone. Pass 2 adds DataHub, which contributes
+descriptions, synonyms from glossary terms, and a `governance` block built from PII tags. You
+diff the two files to see exactly what DataHub added. The `TODO` markers and empty lists mark
+what is missing, such as keys, joins, and metrics, because no schema or catalog states them.
+
+
 `ossiectl derive` writes the half of a model a machine can know. Run it in the toolbox
 terminal. `/work` in the pod is the `work/` folder of the lab directory on your machine, so
 you can open every file in your own editor.
@@ -359,6 +410,18 @@ stage is yours.
 
 ## Stage 5. Certify the model
 
+**Goal.** Turn the draft into a model you are willing to put your name on. Certifying means
+a person decides what the business terms mean and who may see what. This is the one stage no
+tool can do for you.
+
+**What happens.** You edit a copy of the draft in seven steps. Each step adds one kind of
+decision: descriptions, keys, groupable fields, joins, metrics, roles, and a view. After each
+step `ossiectl validate` runs the operator's own checks offline, so mistakes surface here and
+not in the cluster. Edit on your machine at `work/semanticmodel.yaml` with any editor. The
+toolbox also has `nano` and `vi` if you prefer to edit inside the pod. Both see the same
+file.
+
+
 Copy the enriched draft and edit the copy in your editor, on your machine, at
 `work/semanticmodel.yaml` in the lab directory.
 
@@ -376,6 +439,9 @@ ossiectl validate -f semanticmodel.yaml
 a metric outside the allowed grammar before anything reaches the cluster.
 
 ### Edit 1. Describe the model and point views at Iceberg
+
+**Why.** An agent reads the model description first, so it should say what the model is for and warn about the one trap. `viewDatabase` tells the operator where to create views, and Trino needs the catalog in front.
+
 
 Under `spec.connection`, set the view schema. Trino needs a catalog in front of it.
 
@@ -397,6 +463,9 @@ Under `spec.ossie`, replace the empty description and uncomment `ai_context`.
 
 ### Edit 2. Set the primary keys
 
+**Why.** The planner needs to know which column identifies a row. Without keys it cannot tell when a join repeats a value, which is the Stage 1 bug.
+
+
 Each dataset has `primary_key: []`. Set them.
 
 | Dataset | `primary_key` |
@@ -411,6 +480,9 @@ The keys are not decoration. The planner uses them to keep a ratio correct acros
 Without the key on `store`, `store_productivity` in Edit 5 could not be planned safely.
 
 ### Edit 3. Choose the dimensions
+
+**Why.** You decide what people may group by. Anything not declared stays out of reach, which keeps agents away from keys and audit columns.
+
 
 A field can be grouped by only when it declares `dimension`. The tool marked the date columns
 already. Add `dimension: {}` to these nine fields, at the same indentation as `expression`.
@@ -443,6 +515,9 @@ allowed are separate decisions. The model says what can be asked. Governance say
 ask it. Stage 8 shows the difference.
 
 ### Edit 4. Review the inferred joins
+
+**Why.** A wrong join gives wrong numbers silently. The tool only guesses from names, so a person confirms each join and the direction of the many side.
+
 
 Find `relationships: []`. Below it, the tool listed joins it inferred from `*_sk` naming, as
 comments. Review them before you trust them.
@@ -482,6 +557,9 @@ Replace `relationships: []` and its comments with this list.
 `validate` rejects a join graph that is not a tree, so a cycle fails here and not in a query.
 
 ### Edit 5. Define the metrics
+
+**Why.** A metric is one certified definition of a business number. Everyone, including every agent, now gets the same answer for revenue or productivity.
+
 
 This is the core of the model and the part no tool can write. Replace `metrics: []` and its
 comments.
@@ -532,6 +610,9 @@ DataHub informed the choice. A person made it and put it in the model.
 
 ### Edit 6. Add roles
 
+**Why.** Roles turn policy into rules the compiler enforces. Who may see which field, and which rows, is decided once here.
+
+
 The draft has one role, `analyst`. Add a role that sees only Texas and an `admin` role that
 sees everything. Append to `spec.governance.roles`.
 
@@ -557,6 +638,9 @@ The row filter predicate is parsed under a bounded grammar. A typo or a smuggled
 fails validation, so a policy file cannot become an injection path.
 
 ### Edit 7. Publish a governed view
+
+**Why.** BI tools and notebooks that cannot use REST or MCP can still read a certified result. The view is the same compiled SQL saved in Trino.
+
 
 Uncomment the `views` block at the end of the file and replace it.
 
@@ -596,6 +680,16 @@ That output is a plain Apache Ossie document, without the operator extensions. A
 reads Ossie can read it.
 
 ## Stage 6. Publish the model
+
+**Goal.** Hand the certified model to the operator and watch it become a published, served
+artifact. This is the point where a YAML file turns into something other systems can rely on.
+
+**What happens.** `kubectl apply` creates a `SemanticModel`. The manager validates it,
+compiles it into a frozen artifact, checks every table and column against Trino for drift,
+stores the artifact in a ConfigMap, and creates the governed views in Trino. Each action
+reports as a condition on the resource. The server reads only the published ConfigMap, so it
+never sees your YAML, the catalog, or the live schema.
+
 
 Apply the file from your machine, in the second terminal.
 
@@ -645,6 +739,16 @@ The server watches these ConfigMaps. It never reads your YAML, Trino's schema, o
 It serves only what the operator published.
 
 ## Stage 7. Query the model over REST
+
+**Goal.** Prove the payoff. You ask the Stage 1 question again and get the right answer, and
+you see that the SQL comes from your definitions and not from a guess.
+
+**What happens.** You port-forward the server and call its REST API as the `analyst` role.
+First you list the vocabulary, which is what an agent would see. Then you request metrics and
+dimensions by name. The planner turns that request into one SQL statement and Trino runs it.
+You also ask for the SQL without running it, check that it is identical on repeat, and hit a
+boundary by asking to group by a field you never declared.
+
 
 Forward the server port, from the second terminal.
 
@@ -722,6 +826,16 @@ You did not declare `s_city` a dimension in Edit 3, so nobody can group by it.
 
 ## Stage 8. Governance
 
+**Goal.** Show that access rules are enforced by the compiler and not by good behaviour. A
+caller who is not allowed gets refused before any SQL exists.
+
+**What happens.** You request a personal-data column as `analyst` and get a 403, with no SQL
+produced. You request the same data as `tx_analyst` and see the compiler add a `WHERE` that
+limits rows to Texas. Then you try to claim `admin` through the gateway's analyst path. The
+gateway overwrites the role header, so the claim has no effect. This is why the server must
+sit behind a proxy that sets identity in header mode.
+
+
 **A denied column is refused before SQL exists.**
 
 ```bash
@@ -758,6 +872,15 @@ The gateway overwrote the header, so the request ran as `analyst` and was refuse
 why production uses `server.auth.mode: jwt`.
 
 ## Stage 9. Change the model, the catalog, and the schema
+
+**Goal.** Learn that a semantic layer is maintained over time. Three different things change
+in real life, and each one reaches production by a different route.
+
+**What happens.** A metric edit changes the model version on apply. A catalog change shows up
+in a new draft but never in the published model until a person copies it over. A schema change
+in Trino is caught by the drift check, so the server keeps serving the last good version while
+the operator flags the problem. You cause each one and watch the result.
+
 
 A semantic layer is maintained, not written once. Try three kinds of change.
 
@@ -816,6 +939,16 @@ kubectl -n lakehouse exec deploy/trino -- trino --execute \
 `DRIFT` returns to `False` on the next check.
 
 ## Stage 10. Chat with your data
+
+**Goal.** Put an LLM on top of the layer and see why it cannot make the mistakes from Stage 1.
+The LLM picks from a published vocabulary and never writes SQL.
+
+**What happens.** Open WebUI sends your question to a model on OpenRouter. The model sees the
+tools the semantic server offers over MCP, such as listing metrics and querying them. It calls
+those tools with metric and dimension names. The request passes through the gateway, which
+sets the role, then the server plans and runs the SQL. You expand each tool call to see this,
+and you try a forbidden question to see the refusal.
+
 
 Now put an LLM in front of the model. Open WebUI talks to OpenRouter for the model and to the
 semantic server over MCP for the data.

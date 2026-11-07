@@ -141,7 +141,7 @@ grep -n 'TODO' scaffold-datahub.yaml
 ```
 
 **Step 14. Start your model.** *(T)*
-Your copy to edit. Open it in your own editor at `work/semanticmodel.yaml`.
+Your copy to edit. Open it in your own editor at `work/semanticmodel.yaml`, or use `nano` or `vi` in the pod.
 
 ```bash
 cp scaffold-datahub.yaml semanticmodel.yaml
