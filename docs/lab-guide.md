@@ -953,6 +953,19 @@ and you try a forbidden question to see the refusal.
 Now put an LLM in front of the model. Open WebUI talks to OpenRouter for the model and to the
 semantic server over MCP for the data.
 
+**The tools the server offers.** The MCP endpoint exposes four tools. None of them takes plain
+English. The LLM turns English into a structured request, and the server does the rest.
+
+| Tool | What it does |
+|---|---|
+| `list_models` | Lists the published semantic models. |
+| `list_metrics` | Lists the certified metrics with their descriptions and synonyms. |
+| `list_dimensions` | Lists the declared group-by fields, as `dataset.field`, with types and synonyms. |
+| `query_metric` | Takes metrics, dimensions, filters, a time grain, ordering, and a limit. Compiles one SQL statement, runs it on Trino, and returns the rows plus the SQL. |
+
+The description of `query_metric` tells the model not to write SQL. The server would not
+accept SQL anyway, because the tool has no field for it.
+
 **Configure the LLM.** Store your OpenRouter key in a Secret and choose a model that supports
 tool calling.
 
@@ -1003,6 +1016,48 @@ That is what "the LLM never writes SQL" means. The LLM chooses `store_productivi
 `store.s_state` from the vocabulary you published. It matched "revenue per employee" because
 you wrote that synonym. The SQL comes from the planner, from your definition, under the role
 the gateway set. The fourth question is refused, because a DataHub PII tag became a rule.
+
+### What happens, step by step
+
+Follow one question, "What is revenue per employee in each state?", from your keyboard to the
+answer. Each step says who does the work.
+
+1. **You type the question in Open WebUI.** Open WebUI sends it to the model on OpenRouter,
+   together with the list of tools from the MCP connection. *Who: Open WebUI.*
+2. **The model asks what it can use.** It calls `list_metrics` and `list_dimensions`. The
+   request goes to the gateway, which sets your role to `analyst` from the URL path, and then
+   to the semantic server. The server answers from the published model. *Who: the server.*
+3. **The model matches your words to names.** "Revenue per employee" matches the synonym of
+   `store_productivity`. "In each state" matches the dimension `store.s_state`. This is the
+   only place where language is interpreted. *Who: the model.*
+4. **The model calls `query_metric`** with a structured request. *Who: the model.*
+
+   ```json
+   {"metrics": ["store_productivity"], "dimensions": ["store.s_state"]}
+   ```
+
+5. **The server checks the request against the role.** Every metric and dimension must exist,
+   be allowed for `analyst`, and not be a denied field. If one fails, the server returns an
+   error here and no SQL exists. *Who: the server.*
+6. **The server plans the SQL.** It uses the join tree, the primary keys, and the metric
+   definitions you wrote in Stage 5. It adds any row filter the role has. The result is one
+   statement that counts each store's headcount once. The same request, model version, and
+   role always give the same text. *Who: the server, with no LLM involved.*
+7. **The server runs the SQL on Trino** as the `semantic-server` user, which can only read.
+   *Who: the server.*
+8. **The server returns the result.** The tool result holds the columns, the rows, and the SQL
+   it ran. The SQL is there for provenance and the model cannot change it. *Who: the server.*
+9. **The model writes the answer.** It reads the rows and replies in plain English, for
+   example "Tennessee is about 644,567 per employee and Texas is about 1,826,350". The numbers
+   come from Trino. *Who: the model.*
+
+The operator's manager takes no part in any of this. It finished its work in Stage 6 when it
+published the model, and it keeps checking for drift in the background.
+
+Now try the question the role may not ask, "Show me revenue by customer last name". The model
+goes through steps 1 to 4 as before. At step 5 the server finds `customer.c_last_name` in the
+denied fields, which came from a PII tag in DataHub, and returns an error. The model has no
+SQL to run and no rows to show, so it can only tell you it was refused.
 
 Switch the tool to `retail (tx_analyst)` and ask the second question again. Only Texas comes
 back, and the model cannot talk its way past it.
