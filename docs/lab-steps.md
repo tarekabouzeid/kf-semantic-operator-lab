@@ -301,13 +301,14 @@ kubectl -n chat rollout restart deploy/open-webui
 ```
 
 **Step 31. Connect the semantic layer.** *(browser)*
-In Open WebUI, open **Admin Panel**, then **Settings**, then **External Tools**. Add an
-**MCP (Streamable HTTP)** connection with no auth to
+In Open WebUI, open the user menu, then **Admin Panel**, **Settings**, and **Integrations**.
+Under **External Tool Servers**, click **Add Connection**, switch Type to
+**MCP Streamable HTTP**, and use no auth with
 `http://semantic-gateway.chat.svc.cluster.local:8080/analyst/mcp`.
 
 **Step 32. Allow tool calls.** *(browser)*
-In a chat, set **Chat Controls**, then **Advanced Params**, then **Function Calling** to
-**Native**, and enable the tool with the tools button.
+In a chat, click **Model controls**, then **Advanced Params**, and set **Function Calling** to
+**Native**. Enable the tool with the **Integrations** button.
 
 **Step 33. Ask and inspect.** *(browser)*
 Ask these questions and expand each tool call. The LLM picks metric names. The server writes the SQL.

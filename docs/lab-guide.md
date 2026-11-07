@@ -834,12 +834,14 @@ kubectl -n chat rollout status deploy/open-webui
 Change the model the same way at any time. `kubectl -n chat get configmap open-webui -o yaml`
 shows every setting. The environment is the source of truth on each restart.
 
-**Connect the semantic layer.** Open <http://localhost:3000>. Open **Admin Panel**, then
-**Settings**, then **External Tools**, and add a connection.
+**Connect the semantic layer.** Open <http://localhost:3000>. Close the What's New dialog.
+Open the user menu, then **Admin Panel**, then **Settings**, then **Integrations**. Under
+**External Tool Servers**, click **Add Connection**. The Type button starts as **OpenAPI**.
+Click it once to switch to **MCP Streamable HTTP**.
 
 | Setting | Value |
 |---|---|
-| Type | MCP (Streamable HTTP) |
+| Type | MCP Streamable HTTP |
 | URL | `http://semantic-gateway.chat.svc.cluster.local:8080/analyst/mcp` |
 | Auth | None |
 | Name | `retail (analyst)` |
@@ -848,9 +850,10 @@ The URL is the gateway's analyst path, so this chat runs as `analyst`. Add a sec
 connection with `/tx_analyst/mcp` to chat as the Texas-only role. Connections added in the UI
 last until the Open WebUI pod restarts.
 
-**Let the model call tools.** In a new chat, select your model. Open **Chat Controls**, then
-**Advanced Params**, and set **Function Calling** to **Native**. Enable the `retail (analyst)`
-tool for the chat with the tools button under the message box.
+**Let the model call tools.** In a new chat, select your model. Click **Model controls** at
+the top of the chat, open **Advanced Params**, and set **Function Calling** to **Native**.
+Enable the `retail (analyst)` tool for the chat with the **Integrations** button under the
+message box.
 
 **Ask questions.** Start with these.
 

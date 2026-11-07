@@ -92,16 +92,13 @@ Fixes made:
 - NetworkPolicy is inert on this WSL2 kernel. kindnet logs `netlink receive: no such file
   or directory` on every nftables sync. Documented in the guide (Stage 3 and Troubleshooting).
 
-Still open:
-- Open WebUI v0.13.0 menu names. Admin Panel and Settings exist. There is no
-  **External Tools** tab. The settings tabs are General, Authentication, Interface,
-  Connections, Models, Sub-agents, Integrations, Documents, Audio, Images, Web Search,
-  Code Execution, Pipelines, Analytics, Evaluations, and Database. The tool server form
-  is most likely under **Integrations** (i18n key
-  `settings.admin.integrations.externalToolServers.label`), and the bundle still holds the
-  strings `MCP`, `Streamable HTTP`, `Advanced Params`, and `Function Calling`. The string
-  `Chat Controls` is gone (`Controls` and `Toggle Controls` exist). Confirm each click path
-  in the real UI, then fix Stage 10 of the guide and Steps 31 and 32 of lab-steps.
-- Note: REST URLs take `spec.ossie.name`, so the reference model is
+Open WebUI v0.13.0 menu names, checked in the real UI with headless Chromium (2026-11-07):
+- Stage 10 and Steps 31 and 32 are fixed. The path is user menu, Admin Panel, Settings,
+  Integrations, External Tool Servers, Add Connection. The Type button toggles OpenAPI to
+  MCP Streamable HTTP. In a chat, **Model controls** replaces Chat Controls, and
+  Advanced Params holds Function Calling. The tools button is now **Integrations**.
+- Not checked: that the Function Calling dropdown offers **Native**. The bundle contains
+  the string, and the field showed **Default**. An end-to-end chat needs an OpenRouter key.
+- REST URLs take `spec.ossie.name`, so the reference model is
   `/v1/models/tpcds_retail_model`. The learner's model is `retail` in both places, so the
   guide is right as written.
